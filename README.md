@@ -2,25 +2,26 @@
 Physics-Informed Neural Networks for solving the 1D heat equation
 
 A complete implementation of Physics-Informed Neural Networks (PINNs) to solve the 1D heat equation with time-varying boundary conditions using TensorFlow 2.x. 
-Problem Statement
+
+Problem Statement:
 We solve the following PDE on the domain x ∈ [0,1], t ∈ [0,1]:
 
-text
 ∂u/∂t - ∂²u/∂x² = f(x,t)
-Exact Solution:
 
-text
-u(x,t) = sin(πx)·exp(-(π/2)²t) + 0.3·x·sin(2πt)
+Force Term: 
+f(x,t) = (π² - (π/2)²)·sin(πx)·exp(-(π/2)²t) + 0.6π·x·cos(2πt)
+
 Initial Condition:
-
-text
 u(x,0) = sin(πx)
-Boundary Conditions:
 
-text
+Boundary Conditions:
 u(0,t) = 0
 u(1,t) = 0.3·sin(2πt)
-This problem combines exponential decay (heat diffusion) with oscillatory boundary forcing, creating complex spatiotemporal dynamics.
+
+Exact Solution:
+u(x,t) = sin(πx)·exp(-(π/2)²t) + 0.3·x·sin(2πt)
+
+This problem combines exponential decay (heat diffusion) with oscillatory boundary forcing, creating spatiotemporal dynamics.
 
 🎯 Key Features
 ✅ Mesh-free solution using neural networks
@@ -37,17 +38,15 @@ This problem combines exponential decay (heat diffusion) with oscillatory bounda
 
 🚀 Quick Start
 Prerequisites
-bash
+
 python >= 3.7
 tensorflow >= 2.4.0
 numpy >= 1.19.0
 matplotlib >= 3.3.0
-Installation
+
 
 Train the PINN for 8000 epochs (a few minutes on CPU)
-
 Generate visualization plots
-
 Print final error metrics
 
 📊 Results
@@ -61,7 +60,5 @@ Generated Plots
 The script produces three figures:
 
 3d_solutions_seed42.png - Comparison of exact vs PINN solution
-
 solution_snapshots_seed42.png - Solution profiles at t=0.2, 0.4, 0.6, 0.8
-
-loss_curves_seed42.png - Training dynamics (PDE, IC, BC losses
+loss_curves_seed42.png - Training dynamics (PDE, IC, BC losses)

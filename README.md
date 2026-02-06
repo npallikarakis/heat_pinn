@@ -60,6 +60,8 @@ L∞ Error:                  4.67e-02,
 
 Generated Plots: 
 
-3d_solutions_seed42.png - Comparison of exact vs PINN solution
-solution_snapshots_seed42.png - Solution profiles at t=0.2, 0.4, 0.6, 0.8
+3d_solutions_seed42.png - Comparison of exact vs PINN solution 
+
+solution_snapshots_seed42.png - Solution profiles at t=0.2, 0.4, 0.6, 0.8 
+
 loss_curves_seed42.png - Training dynamics (PDE, IC, BC losses)

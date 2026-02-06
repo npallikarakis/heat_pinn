@@ -4,6 +4,7 @@
 A complete implementation of Physics-Informed Neural Networks (PINNs) to solve the 1D heat equation with time-varying boundary conditions using TensorFlow 2.x. 
 
 **Problem Statement:**
+
 We solve the following PDE on the domain x ∈ [0,1], t ∈ [0,1]:
 
 ∂u/∂t - ∂²u/∂x² = f(x,t)
@@ -38,6 +39,7 @@ This problem combines exponential decay (heat diffusion) with oscillatory bounda
 ✅ Reproducible results with fixed random seeds
 
 🚀 **Quick Start**
+
 Prerequisites
 
 python >= 3.7
@@ -48,7 +50,8 @@ matplotlib >= 3.3.0
 
 Train the PINN for 8000 epochs (a few minutes on CPU)
 
-📊 **Results: **
+📊 **Results:**
+
 After training, you should see:
 
 Mean Squared Error (MSE):  3.19e-03, 

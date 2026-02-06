@@ -24,6 +24,7 @@ u(x,t) = sin(πx)·exp(-(π/2)²t) + 0.3·x·sin(2πt)
 This problem combines exponential decay (heat diffusion) with oscillatory boundary forcing, creating spatiotemporal dynamics.
 
 🎯 Key Features
+
 ✅ Mesh-free solution using neural networks
 
 ✅ Automatic differentiation for computing PDE residuals

@@ -53,7 +53,6 @@ Print final error metrics
 📊 Results
 After training, you should see:
 
-text
 Mean Squared Error (MSE):  3.19e-03
 L2 Error:                  1.80e-02
 L∞ Error:                  4.67e-02

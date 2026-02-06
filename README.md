@@ -50,13 +50,14 @@ Train the PINN for 8000 epochs (a few minutes on CPU)
 Generate visualization plots
 Print final error metrics
 
-📊 Results
+📊 Results: 
 After training, you should see:
 
-Mean Squared Error (MSE):  3.19e-03
-L2 Error:                  1.80e-02
-L∞ Error:                  4.67e-02
-Generated Plots
+Mean Squared Error (MSE):  3.19e-03, 
+L2 Error:                  1.80e-02, 
+L∞ Error:                  4.67e-02, 
+
+Generated Plots: 
 The script produces three figures:
 
 3d_solutions_seed42.png - Comparison of exact vs PINN solution

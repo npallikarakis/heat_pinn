@@ -47,8 +47,6 @@ matplotlib >= 3.3.0
 
 
 Train the PINN for 8000 epochs (a few minutes on CPU)
-Generate visualization plots
-Print final error metrics
 
 📊 Results: 
 After training, you should see:

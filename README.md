@@ -75,4 +75,4 @@ After 8000 epochs, it achieves:
 - L2 Error: **5.11 × 10⁻³**
 - Training time: **119.6 seconds** (2.8× faster than TensorFlow)
 
-See the [full comparison article](https://medium.com/@pallikarakis.n/solving-the-heat-equation-with-physics-informed-neural-networks-a-pytorch-vs-tensorflow-comparison) for details.
+See the [full comparison article]([https://medium.com/@pallikarakis.n/solving-the-heat-equation-with-physics-informed-neural-networks-a-pytorch-vs-tensorflow-comparison](https://medium.com/@pallikarakis.n/solving-the-heat-equation-with-physics-informed-neural-networks-pytorch-vs-tensorflow-1b82d10fa5da)) for details.

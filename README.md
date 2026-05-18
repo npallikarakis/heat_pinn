@@ -65,3 +65,14 @@ Generated Plots:
 solution_snapshots_seed42.png - Solution profiles at t=0.2, 0.4, 0.6, 0.8 
 
 loss_curves_seed42.png - Training dynamics (PDE, IC, BC losses)
+
+## PyTorch Version
+
+A PyTorch implementation is also available in [`train_pytorch.py`](train_pytorch.py).  
+It reproduces the same problem with identical hyperparameters.  
+After 8000 epochs, it achieves:
+
+- L2 Error: **5.11 × 10⁻³**
+- Training time: **119.6 seconds** (2.8× faster than TensorFlow)
+
+See the [full comparison article](https://medium.com/@pallikarakis.n/solving-the-heat-equation-with-physics-informed-neural-networks-a-pytorch-vs-tensorflow-comparison) for details.

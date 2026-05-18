@@ -54,9 +54,9 @@ Train the PINN for 8000 epochs (a few minutes on CPU)
 
 After training, you should see:
 
-Mean Squared Error (MSE):  3.19e-03, 
-L2 Error:                  1.80e-02, 
-L∞ Error:                  4.67e-02, 
+Mean Squared Error (MSE):  1.319118e-05, 
+L2 Error:                  3.648744e-03, 
+L∞ Error:                  1.814345e-02, 
 
 Generated Plots: 
 

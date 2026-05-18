@@ -1,35 +1,27 @@
 """
-Physics-Informed Neural Network (PINN) for Heat Equation
-========================================================
-
-Problem:
-    PDE: ∂u/∂t - ∂²u/∂x² = f(x,t)
-    Domain: x ∈ [0,1], t ∈ [0,1]
-
-    Exact solution: u(x,t) = sin(πx)·exp(-(π/2)²t) + 0.3·x·sin(2πt)
-
-    Initial condition: u(x,0) = sin(πx)
-    Boundary conditions:
-        u(0,t) = 0
-        u(1,t) = 0.3·sin(2πt)
-
-Author: Nikolaos Pallikarakis
+Physics-Informed Neural Network (PINN) for Heat Equation - PyTorch version
+Exact translation of the TensorFlow implementation for fair comparison.
+All hyperparameters, seeds, data splits, and evaluation are identical.
 """
 
 import numpy as np
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.optim as optim
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-# Set seeds for reproducibility
+# Set seeds for reproducibility (matches TF version)
 np.random.seed(42)
-tf.random.set_seed(42)
+torch.manual_seed(42)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(42)
 
 import time
 start_time = time.time()
 
 # ============================================================================
-# SECTION 1: Problem Definition
+# SECTION 1: Problem Definition (identical to TF)
 # ============================================================================
 
 PI = np.pi
@@ -37,100 +29,37 @@ CONST = PI / 2
 AC_AMPLITUDE = 0.3
 
 def exact_solution(x, t):
-    """
-    Exact solution to the heat equation.
-
-    u(x,t) = sin(πx)·exp(-(π/2)²t) + 0.3·x·sin(2πt)
-
-    Args:
-        x: spatial coordinate
-        t: time coordinate
-
-    Returns:
-        u(x,t): exact solution value
-    """
     x = np.asarray(x, dtype=np.float32)
     t = np.asarray(t, dtype=np.float32)
-
     const_sq = CONST ** 2
     exponential_part = np.sin(PI * x) * np.exp(-const_sq * t)
     oscillatory_part = AC_AMPLITUDE * x * np.sin(2 * PI * t)
-
     return exponential_part + oscillatory_part
 
-
 def forcing_term(x, t):
-    """
-    Forcing term f(x,t) from PDE: ∂u/∂t - ∂²u/∂x² = f
-
-    Args:
-        x: spatial coordinate
-        t: time coordinate
-
-    Returns:
-        f(x,t): forcing term value
-    """
     x = np.asarray(x, dtype=np.float32)
     t = np.asarray(t, dtype=np.float32)
-
     const_sq = CONST ** 2
     pi_sq = PI ** 2
-
-    # From exponential part
     f1 = (pi_sq - const_sq) * np.sin(PI * x) * np.exp(-const_sq * t)
-
-    # From oscillatory part
     f2 = 2 * PI * AC_AMPLITUDE * x * np.cos(2 * PI * t)
-
     return f1 + f2
 
-
 def initial_condition(x):
-    """Initial condition: u(x,0) = sin(πx)"""
-    x = np.asarray(x, dtype=np.float32)
     return np.sin(PI * x)
 
-
 def boundary_condition(x_boundary, t):
-    """
-    Boundary conditions:
-        u(0,t) = 0
-        u(1,t) = 0.3·sin(2πt)
-    """
-    t = np.asarray(t, dtype=np.float32)
     if x_boundary == 0:
         return 0.0
-    elif x_boundary == 1:
+    else:  # x_boundary == 1
         return float(AC_AMPLITUDE * np.sin(2 * PI * t))
-    else:
-        raise ValueError("x_boundary must be 0 or 1")
-
 
 # ============================================================================
-# SECTION 2: Training Data Generation
+# SECTION 2: Training Data Generation (identical to TF)
 # ============================================================================
 
 def generate_training_data(n_interior=3000, n_ic=150, n_bc=10, n_bc_grid=5, seed=42):
-    """
-    Generate collocation points for PINN training.
-
-    Args:
-        n_interior: number of interior points for PDE residual
-        n_ic: number of initial condition points
-        n_bc: total number of boundary points (per boundary)
-        n_bc_grid: number of grid points in time for BC
-        seed: random seed
-
-    Returns:
-        X_interior: interior collocation points [x, t]
-        X_ic: initial condition points [x, 0]
-        y_ic: initial condition values
-        X_bc: boundary condition points [x, t]
-        y_bc: boundary condition values
-    """
     np.random.seed(seed)
-
-    # Interior points: random sampling in [0,1] x [0,1]
     X_interior = np.random.rand(n_interior, 2).astype(np.float32)
 
     # Initial condition points at t=0
@@ -156,114 +85,82 @@ def generate_training_data(n_interior=3000, n_ic=150, n_bc=10, n_bc_grid=5, seed
     X_bc1 = np.hstack([np.ones((len(t_bc_combined_1), 1), dtype=np.float32), t_bc_combined_1])
     y_bc1 = np.array([boundary_condition(1, t) for t in t_bc_combined_1[:, 0]]).reshape(-1, 1).astype(np.float32)
 
-    # Combine boundary points
     X_bc = np.vstack([X_bc0, X_bc1])
     y_bc = np.vstack([y_bc0, y_bc1])
 
     return X_interior, X_ic, y_ic, X_bc, y_bc
 
+# ============================================================================
+# SECTION 3: Neural Network Architecture (identical to TF)
+# ============================================================================
+
+class PINN(nn.Module):
+    def __init__(self, hidden_layers=3, hidden_units=64):
+        super(PINN, self).__init__()
+        layers = []
+        # Input layer
+        layers.append(nn.Linear(2, hidden_units))
+        layers.append(nn.Tanh())
+        # Hidden layers
+        for _ in range(hidden_layers - 1):
+            layers.append(nn.Linear(hidden_units, hidden_units))
+            layers.append(nn.Tanh())
+        # Output layer
+        layers.append(nn.Linear(hidden_units, 1))
+        self.net = nn.Sequential(*layers)
+
+        # Xavier (Glorot) uniform initialization like TF's GlorotUniform
+        def init_weights(m):
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.zeros_(m.bias)
+        self.apply(init_weights)
+
+    def forward(self, x):
+        return self.net(x)
 
 # ============================================================================
-# SECTION 3: Neural Network Architecture
-# ============================================================================
-
-def create_pinn_model(hidden_layers=3, hidden_units=64, seed=42):
-    """
-    Create a feedforward neural network for PINN.
-
-    Architecture:
-        Input: [x, t] (2 features)
-        Hidden: 3 layers × 64 units with tanh activation
-        Output: u(x,t) (1 value)
-
-    Args:
-        hidden_layers: number of hidden layers
-        hidden_units: units per hidden layer
-        seed: random seed for weight initialization
-
-    Returns:
-        model: Keras Sequential model
-    """
-    import random
-    np.random.seed(seed)
-    random.seed(seed)
-    tf.random.set_seed(seed)
-
-    layers = []
-
-    # Input layer
-    layers.append(tf.keras.layers.Dense(
-        hidden_units,
-        activation='tanh',
-        input_shape=(2,),
-        kernel_initializer=tf.keras.initializers.GlorotUniform(seed=seed),
-        bias_initializer=tf.keras.initializers.Zeros()
-    ))
-
-    # Hidden layers
-    for i in range(hidden_layers - 1):
-        layers.append(tf.keras.layers.Dense(
-            hidden_units,
-            activation='tanh',
-            kernel_initializer=tf.keras.initializers.GlorotUniform(seed=seed + i + 1),
-            bias_initializer=tf.keras.initializers.Zeros()
-        ))
-
-    # Output layer
-    layers.append(tf.keras.layers.Dense(
-        1,
-        kernel_initializer=tf.keras.initializers.GlorotUniform(seed=seed + hidden_layers + 1),
-        bias_initializer=tf.keras.initializers.Zeros()
-    ))
-
-    return tf.keras.Sequential(layers)
-
-
-# ============================================================================
-# SECTION 4: Training Loop with Physics Loss
+# SECTION 4: Training Loop (mimics TF's training, same output format)
 # ============================================================================
 
 def train_pinn(model, X_interior, X_ic, y_ic, X_bc, y_bc,
                epochs=8000, lr_initial=2e-4, lr_final=1e-5,
                weight_ic=10.0, weight_bc=10.0, verbose_freq=500):
-    """
-    Train the PINN model.
+    # Convert numpy arrays to torch tensors
+    X_int_t = torch.tensor(X_interior, requires_grad=True, dtype=torch.float32)
+    X_ic_t = torch.tensor(X_ic, dtype=torch.float32)
+    y_ic_t = torch.tensor(y_ic, dtype=torch.float32)
+    X_bc_t = torch.tensor(X_bc, dtype=torch.float32)
+    y_bc_t = torch.tensor(y_bc, dtype=torch.float32)
 
-    Total Loss = 1.0 × L_PDE + weight_ic × L_IC + weight_bc × L_BC
+    # Extract x and t from interior points (for forcing term)
+    x_int = X_int_t[:, 0].reshape(-1, 1)
+    t_int = X_int_t[:, 1].reshape(-1, 1)
+    f_val = forcing_term(x_int.detach().numpy(), t_int.detach().numpy())
+    f_t = torch.tensor(f_val, dtype=torch.float32)
 
-    The PDE residual is computed using automatic differentiation:
-        ∂u/∂t - ∂²u/∂x² - f(x,t) = 0
+    # Move all data to the same device as the model
+    device = next(model.parameters()).device
+    X_int_t = X_int_t.to(device)
+    x_int = x_int.to(device)
+    t_int = t_int.to(device)
+    f_t = f_t.to(device)
+    X_ic_t = X_ic_t.to(device)
+    y_ic_t = y_ic_t.to(device)
+    X_bc_t = X_bc_t.to(device)
+    y_bc_t = y_bc_t.to(device)
 
-    Args:
-        model: neural network
-        X_interior, X_ic, y_ic, X_bc, y_bc: training data
-        epochs: number of training iterations
-        lr_initial: initial learning rate
-        lr_final: final learning rate
-        weight_ic: weight for initial condition loss
-        weight_bc: weight for boundary condition loss
-        verbose_freq: print frequency
+    # Polynomial decay schedule (exactly as in TF)
+    def lr_lambda(epoch):
+        decay_steps = 5000
+        power = 0.5
+        if epoch >= decay_steps:
+            return lr_final / lr_initial
+        return (1 - epoch / decay_steps) ** power
 
-    Returns:
-        history: dictionary with training history
-    """
-    # Learning rate schedule
-    lr_schedule = tf.keras.optimizers.schedules.PolynomialDecay(
-        initial_learning_rate=lr_initial,
-        decay_steps=5000,
-        end_learning_rate=lr_final,
-        power=0.5
-    )
-    optimizer = tf.keras.optimizers.Adam(lr_schedule)
+    optimizer = optim.Adam(model.parameters(), lr=lr_initial)
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-    # Convert to TensorFlow constants
-    X_int_tf = tf.constant(X_interior, dtype=tf.float32)
-    X_ic_tf = tf.constant(X_ic, dtype=tf.float32)
-    y_ic_tf = tf.constant(y_ic, dtype=tf.float32)
-    X_bc_tf = tf.constant(X_bc, dtype=tf.float32)
-    y_bc_tf = tf.constant(y_bc, dtype=tf.float32)
-
-    # Training history
     history = {
         'epoch': [],
         'loss_total': [],
@@ -277,68 +174,55 @@ def train_pinn(model, X_interior, X_ic, y_ic, X_bc, y_bc,
     print(f"Loss = 1.0×PDE + {weight_ic}×IC + {weight_bc}×BC\n")
 
     for epoch in range(epochs):
-        # Use persistent tape for computing second-order derivatives
-        with tf.GradientTape(persistent=True) as tape:
-            # Extract x and t from interior points
-            x = tf.reshape(X_int_tf[:, 0], (-1, 1))
-            t = tf.reshape(X_int_tf[:, 1], (-1, 1))
-            tape.watch([x, t])
+        optimizer.zero_grad()
 
-            # Forward pass through network
-            u = model(tf.concat([x, t], axis=1), training=True)
+        # PDE residual using automatic differentiation
+        u = model(torch.cat([x_int, t_int], dim=1))
+        # First derivatives
+        u_x = torch.autograd.grad(u, x_int, grad_outputs=torch.ones_like(u), create_graph=True)[0]
+        u_t = torch.autograd.grad(u, t_int, grad_outputs=torch.ones_like(u), create_graph=True)[0]
+        # Second derivative
+        u_xx = torch.autograd.grad(u_x, x_int, grad_outputs=torch.ones_like(u_x), create_graph=True)[0]
 
-            # Compute derivatives using automatic differentiation
-            u_x = tape.gradient(u, x)      # ∂u/∂x
-            u_xx = tape.gradient(u_x, x)   # ∂²u/∂x²
-            u_t = tape.gradient(u, t)      # ∂u/∂t
+        loss_pde = torch.mean((u_t - u_xx - f_t) ** 2)
 
-            # Compute forcing term
-            f = forcing_term(X_interior[:, 0], X_interior[:, 1])
-            f_tf = tf.constant(f.reshape(-1, 1), dtype=tf.float32)
+        # Initial condition loss
+        u_ic = model(X_ic_t)
+        loss_ic = torch.mean((u_ic - y_ic_t) ** 2)
 
-            # PDE residual: ∂u/∂t - ∂²u/∂x² - f(x,t)
-            loss_pde = tf.reduce_mean(tf.square(u_t - u_xx - f_tf))
+        # Boundary condition loss
+        u_bc = model(X_bc_t)
+        loss_bc = torch.mean((u_bc - y_bc_t) ** 2)
 
-            # Initial condition loss
-            loss_ic = tf.reduce_mean(tf.square(model(X_ic_tf, training=True) - y_ic_tf))
+        loss_total = loss_pde + weight_ic * loss_ic + weight_bc * loss_bc
 
-            # Boundary condition loss
-            loss_bc = tf.reduce_mean(tf.square(model(X_bc_tf, training=True) - y_bc_tf))
-
-            # Total weighted loss
-            loss_total = (
-                1.0 * loss_pde +
-                weight_ic * loss_ic +
-                weight_bc * loss_bc
-            )
-
-        # Compute gradients and update weights
-        grads = tape.gradient(loss_total, model.trainable_variables)
-        grads, _ = tf.clip_by_global_norm(grads, 1.0)
-        optimizer.apply_gradients(zip(grads, model.trainable_variables))
-        del tape
+        loss_total.backward()
+        # Gradient clipping (same as TF: clip_by_global_norm with 1.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+        scheduler.step()
 
         # Record history
         history['epoch'].append(epoch)
-        history['loss_total'].append(float(loss_total.numpy()))
-        history['loss_pde'].append(float(loss_pde.numpy()))
-        history['loss_ic'].append(float(loss_ic.numpy()))
-        history['loss_bc'].append(float(loss_bc.numpy()))
+        history['loss_total'].append(loss_total.item())
+        history['loss_pde'].append(loss_pde.item())
+        history['loss_ic'].append(loss_ic.item())
+        history['loss_bc'].append(loss_bc.item())
 
-        # Periodic evaluation
+        # Periodic evaluation (identical to TF)
         if epoch % verbose_freq == 0:
-            # Compute L2 error on test grid
+            # Generate test grid
             test_grid_x = np.linspace(0, 1, 150)
             test_grid_t = np.linspace(0.01, 1.0, 80)
             X_test, T_test = np.meshgrid(test_grid_x, test_grid_t)
             dx = test_grid_x[1] - test_grid_x[0]
             dt = test_grid_t[1] - test_grid_t[0]
-            X_test_flat = X_test.flatten()
-            T_test_flat = T_test.flatten()
+            X_test_flat = np.column_stack([X_test.flatten(), T_test.flatten()]).astype(np.float32)
+            X_test_tensor = torch.tensor(X_test_flat, device=device)
 
-            u_exact = exact_solution(X_test_flat, T_test_flat)
-            u_pred = model(np.stack([X_test_flat, T_test_flat], axis=1), training=False).numpy().flatten()
-
+            with torch.no_grad():
+                u_pred = model(X_test_tensor).cpu().numpy().flatten()
+            u_exact = exact_solution(X_test.flatten(), T_test.flatten())
             l2_error = np.sqrt(np.sum((u_exact - u_pred) ** 2) * dx * dt)
             history['l2_error'].append(l2_error)
 
@@ -349,33 +233,25 @@ def train_pinn(model, X_interior, X_ic, y_ic, X_bc, y_bc,
     print("\nTraining complete!")
     return history
 
-
-
-
-
-
 # ============================================================================
-# SECTION 5: Visualization Functions
+# SECTION 5: Visualization Functions (identical filenames to TF)
 # ============================================================================
 
 def plot_3d_solutions(model, seed=42):
-    """Generate 3D surface plots comparing exact and PINN solutions."""
-
     test_grid_x = np.linspace(0, 1, 150)
     test_grid_t = np.linspace(0.01, 1.0, 80)
-
     X_3d, T_3d = np.meshgrid(test_grid_x, test_grid_t)
-    X_flat = X_3d.flatten()
-    T_flat = T_3d.flatten()
-    X_input = np.column_stack([X_flat, T_flat]).astype(np.float32)
+    X_flat = np.column_stack([X_3d.flatten(), T_3d.flatten()]).astype(np.float32)
 
+    device = next(model.parameters()).device
+    X_tensor = torch.tensor(X_flat, device=device)
+    with torch.no_grad():
+        U_pred = model(X_tensor).cpu().numpy().reshape(X_3d.shape)
     U_exact = exact_solution(X_3d, T_3d)
-    U_pred = model(X_input, training=False).numpy().reshape(X_3d.shape)
     E_abs = np.abs(U_exact - U_pred)
 
     fig = plt.figure(figsize=(20, 6))
 
-    # Exact solution
     ax1 = fig.add_subplot(1, 3, 1, projection='3d')
     surf1 = ax1.plot_surface(X_3d, T_3d, U_exact, cmap='viridis', edgecolor='none', alpha=0.9)
     ax1.set_xlabel('x', fontsize=11)
@@ -385,7 +261,6 @@ def plot_3d_solutions(model, seed=42):
     ax1.view_init(elev=25, azim=45)
     fig.colorbar(surf1, ax=ax1, pad=0.12, shrink=0.8)
 
-    # PINN prediction
     ax2 = fig.add_subplot(1, 3, 2, projection='3d')
     surf2 = ax2.plot_surface(X_3d, T_3d, U_pred, cmap='viridis', edgecolor='none', alpha=0.9)
     ax2.set_xlabel('x', fontsize=11)
@@ -395,7 +270,6 @@ def plot_3d_solutions(model, seed=42):
     ax2.view_init(elev=25, azim=45)
     fig.colorbar(surf2, ax=ax2, pad=0.12, shrink=0.8)
 
-    # Absolute error
     ax3 = fig.add_subplot(1, 3, 3, projection='3d')
     surf3 = ax3.plot_surface(X_3d, T_3d, E_abs, cmap='hot', edgecolor='none', alpha=0.9)
     ax3.set_xlabel('x', fontsize=11)
@@ -407,38 +281,30 @@ def plot_3d_solutions(model, seed=42):
 
     plt.suptitle(f'PINN Solution Comparison (Seed {seed})', fontsize=14, fontweight='bold', y=0.98)
     plt.tight_layout()
-
-    filename = f'3d_solutions_seed{seed}.png'
+    filename = f'3d_solutions_seed{seed}_pytorch.png'
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     print(f"\n✓ Saved 3D solutions: {filename}")
     plt.close()
 
-
 def plot_loss_curves(history, seed=42):
-    """Generate loss curve plots."""
-
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-    # PDE Loss
     axes[0, 0].semilogy(history['epoch'], history['loss_pde'], 'b-', linewidth=2.5)
     axes[0, 0].set_title('PDE Loss', fontsize=12, fontweight='bold')
     axes[0, 0].set_ylabel('Loss', fontsize=11)
     axes[0, 0].grid(True, alpha=0.3)
 
-    # IC Loss
     axes[0, 1].semilogy(history['epoch'], history['loss_ic'], 'g-', linewidth=2.5)
     axes[0, 1].set_title('IC Loss (weight=10)', fontsize=12, fontweight='bold')
     axes[0, 1].set_ylabel('Loss', fontsize=11)
     axes[0, 1].grid(True, alpha=0.3)
 
-    # BC Loss
     axes[1, 0].semilogy(history['epoch'], history['loss_bc'], 'm-', linewidth=2.5)
     axes[1, 0].set_title('BC Loss (weight=10)', fontsize=12, fontweight='bold')
     axes[1, 0].set_xlabel('Epoch', fontsize=11)
     axes[1, 0].set_ylabel('Loss', fontsize=11)
     axes[1, 0].grid(True, alpha=0.3)
 
-    # Total Loss
     axes[1, 1].semilogy(history['epoch'], history['loss_total'], 'r-', linewidth=2.5)
     axes[1, 1].set_title('Total Loss', fontsize=12, fontweight='bold')
     axes[1, 1].set_xlabel('Epoch', fontsize=11)
@@ -447,31 +313,27 @@ def plot_loss_curves(history, seed=42):
 
     plt.suptitle(f'Loss Curves (Seed {seed})', fontsize=14, fontweight='bold')
     plt.tight_layout()
-
-    filename = f'loss_curves_seed{seed}.png'
+    filename = f'loss_curves_seed{seed}_pytorch.png'
     plt.savefig(filename, dpi=200, bbox_inches='tight')
     print(f"✓ Saved loss curves: {filename}")
     plt.close()
 
-
 def plot_solution_snapshots(model, seed=42):
-    """Generate solution snapshots at different time points."""
-
     test_times = [0.2, 0.4, 0.6, 0.8]
     x_plot = np.linspace(0, 1, 150)
-
     fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    device = next(model.parameters()).device
 
     for idx, t_test in enumerate(test_times):
         ax = axes[idx // 2, idx % 2]
         X = np.column_stack([x_plot, np.full_like(x_plot, t_test)]).astype(np.float32)
-
+        X_tensor = torch.tensor(X, device=device)
+        with torch.no_grad():
+            u_pred = model(X_tensor).cpu().numpy().flatten()
         u_exact = exact_solution(x_plot, t_test)
-        u_pred = model(X, training=False).numpy().flatten()
 
         ax.plot(x_plot, u_exact, 'k-', linewidth=3, label='Exact', zorder=3)
         ax.plot(x_plot, u_pred, 'r--', linewidth=2.5, label='PINN', alpha=0.8)
-
         ax.set_xlabel('x', fontsize=11)
         ax.set_ylabel(f'u(x, {t_test})', fontsize=11)
         ax.set_title(f'Solution at t = {t_test}', fontsize=12, fontweight='bold')
@@ -480,20 +342,18 @@ def plot_solution_snapshots(model, seed=42):
 
     plt.suptitle(f'Solution Snapshots (Seed {seed})', fontsize=14, fontweight='bold')
     plt.tight_layout()
-
-    filename = f'solution_snapshots_seed{seed}.png'
+    filename = f'solution_snapshots_seed{seed}_pytorch.png'
     plt.savefig(filename, dpi=150, bbox_inches='tight')
     print(f"✓ Saved snapshots: {filename}")
     plt.close()
 
-
 # ============================================================================
-# SECTION 6: Main Execution
+# SECTION 6: Main Execution (identical output to TF)
 # ============================================================================
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("Physics-Informed Neural Network for Heat Equation")
+    print("Physics-Informed Neural Network for Heat Equation - PyTorch")
     print("=" * 70)
 
     SEED = 42
@@ -513,8 +373,10 @@ if __name__ == "__main__":
 
     # Create model
     print("\nCreating neural network...")
-    model = create_pinn_model(hidden_layers=3, hidden_units=64, seed=SEED)
-    model.summary()
+    model = PINN(hidden_layers=3, hidden_units=64)
+    # Print model summary (PyTorch doesn't have a built-in Keras-like summary, but we can show total parameters)
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total trainable parameters: {total_params:,}")
 
     # Train model
     history = train_pinn(
@@ -547,10 +409,12 @@ if __name__ == "__main__":
     dx = test_grid_x[1] - test_grid_x[0]
     dt = test_grid_t[1] - test_grid_t[0]
     X_flat = np.column_stack([X_grid.flatten(), T_grid.flatten()]).astype(np.float32)
+    device = next(model.parameters()).device
+    X_tensor = torch.tensor(X_flat, device=device)
 
+    with torch.no_grad():
+        u_pred = model(X_tensor).cpu().numpy().flatten()
     u_exact = exact_solution(X_flat[:, 0], X_flat[:, 1])
-    u_pred = model(X_flat, training=False).numpy().flatten()
-
     error = u_exact - u_pred
     mse = np.mean(error ** 2)
     l2_error = np.sqrt(np.sum(error ** 2) * dx * dt)
